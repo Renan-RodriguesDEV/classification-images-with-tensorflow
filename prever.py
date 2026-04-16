@@ -62,7 +62,7 @@ def prever(frame_bgr: np.ndarray, modelo, classes: list) -> tuple[str, float]:
     probs     = modelo.predict(arr, verbose=0)[0]
     idx       = int(np.argmax(probs))
     confianca = float(probs[idx])
-    classe    = classes[idx] if confianca >= CONFIANCA_MIN else "Incerto"
+    classe    = classes[idx]
 
     return classe, confianca
 

@@ -11,3 +11,4 @@ wheels/
 dataset/
 uv.lock
 *.png
+.ruff_cache

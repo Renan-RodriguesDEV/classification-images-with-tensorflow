@@ -3,29 +3,30 @@ Inferência com modelo CNN salvo
 Suporte: webcam em tempo real ou arquivo de imagem
 """
 
+import argparse
 import json
 import sys
-import argparse
+import time
 from pathlib import Path
 
-import numpy as np
 import cv2
-import tensorflow as tf
+import numpy as np
 from tensorflow import keras
 
 # ─────────────────────────────────────────
 # CONFIGURAÇÕES — ajuste se necessário
 # ─────────────────────────────────────────
 
-MODEL_PATH   = "modelo_cnn.keras"
+MODEL_PATH = "modelo_cnn.keras"
 CLASSES_PATH = "classes.json"
-IMG_SIZE     = (128, 128)          # deve ser igual ao usado no treino
-CONFIANCA_MIN = 0.6                # abaixo disso exibe "Incerto"
+IMG_SIZE = (128, 128)  # deve ser igual ao usado no treino
+CONFIANCA_MIN = 0.5  # abaixo disso exibe "Incerto"
 
 
 # ─────────────────────────────────────────
 # CARREGAMENTO
 # ─────────────────────────────────────────
+
 
 def carregar_modelo():
     """Carrega o modelo e as classes salvas."""
@@ -49,20 +50,21 @@ def carregar_modelo():
 # PREDIÇÃO
 # ─────────────────────────────────────────
 
+
 def prever(frame_bgr: np.ndarray, modelo, classes: list) -> tuple[str, float]:
     """
     Recebe um frame BGR (padrão OpenCV), retorna (classe, confiança).
     """
     # OpenCV usa BGR, o modelo espera RGB
-    rgb  = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-    img  = cv2.resize(rgb, IMG_SIZE)
-    arr  = np.expand_dims(img, axis=0).astype("float32")
+    rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+    img = cv2.resize(rgb, IMG_SIZE)
+    arr = np.expand_dims(img, axis=0).astype("float32")
     # Nota: não normalizamos aqui pois o Rescaling está dentro do modelo
 
-    probs     = modelo.predict(arr, verbose=0)[0]
-    idx       = int(np.argmax(probs))
+    probs = modelo.predict(arr, verbose=0)[0]
+    idx = int(np.argmax(probs))
     confianca = float(probs[idx])
-    classe    = classes[idx]
+    classe = classes[idx]
 
     return classe, confianca
 
@@ -70,6 +72,7 @@ def prever(frame_bgr: np.ndarray, modelo, classes: list) -> tuple[str, float]:
 # ─────────────────────────────────────────
 # MODO 1: ARQUIVO DE IMAGEM
 # ─────────────────────────────────────────
+
 
 def prever_arquivo(caminho: str, modelo, classes: list) -> None:
     """Classifica uma imagem estática e exibe o resultado."""
@@ -82,9 +85,10 @@ def prever_arquivo(caminho: str, modelo, classes: list) -> None:
 
     # Desenha resultado na imagem
     label = f"{classe}  {confianca:.0%}"
-    cor   = (0, 200, 0) if confianca >= CONFIANCA_MIN else (0, 165, 255)
-    cv2.putText(frame, label, (15, 35),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.0, cor, 2, cv2.LINE_AA)
+    cor = (0, 200, 0) if confianca >= CONFIANCA_MIN else (0, 165, 255)
+    cv2.putText(
+        frame, label, (15, 35), cv2.FONT_HERSHEY_SIMPLEX, 1.0, cor, 2, cv2.LINE_AA
+    )
 
     print(f"\n🔍 Resultado: {classe}  ({confianca:.2%})")
 
@@ -96,6 +100,7 @@ def prever_arquivo(caminho: str, modelo, classes: list) -> None:
 # ─────────────────────────────────────────
 # MODO 2: WEBCAM EM TEMPO REAL
 # ─────────────────────────────────────────
+
 
 def prever_webcam(modelo, classes: list) -> None:
     """
@@ -110,34 +115,34 @@ def prever_webcam(modelo, classes: list) -> None:
 
     print("📷 Webcam aberta | Pressione 'q' para sair\n")
 
-    # Só roda a predição a cada N frames para não sobrecarregar a CPU
-    INTERVALO   = 10
-    contador    = 0
-    ultimo_label = ("...", 0.0)   # guarda o último resultado entre frames
+    # Roda a predição a cada 5 segundos (abordagem simples)
+    INTERVALO_SEGUNDOS = 5
+    ultimo_label = ("...", 0.0)  # guarda o último resultado entre frames
 
     while True:
         ok, frame = cap.read()
         if not ok:
             break
 
-        # Faz predição no intervalo definido
-        if contador % INTERVALO == 0:
-            ultimo_label = prever(frame, modelo, classes)
+        # Faz uma predição e aguarda 5 segundos para a próxima
+        ultimo_label = prever(frame, modelo, classes)
 
         classe, confianca = ultimo_label
         label = f"{classe}  {confianca:.0%}"
-        cor   = (0, 200, 0) if confianca >= CONFIANCA_MIN else (0, 165, 255)
+        cor = (0, 200, 0) if confianca >= CONFIANCA_MIN else (0, 165, 255)
 
         # Fundo semitransparente para o texto ficar legível
         cv2.rectangle(frame, (10, 10), (400, 50), (0, 0, 0), -1)
-        cv2.putText(frame, label, (15, 38),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, cor, 2, cv2.LINE_AA)
+        cv2.putText(
+            frame, label, (15, 38), cv2.FONT_HERSHEY_SIMPLEX, 1.0, cor, 2, cv2.LINE_AA
+        )
 
         cv2.imshow("CNN ao vivo — 'q' para sair", frame)
-        contador += 1
 
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
+
+        time.sleep(INTERVALO_SEGUNDOS)
 
     cap.release()
     cv2.destroyAllWindows()
@@ -148,15 +153,15 @@ def prever_webcam(modelo, classes: list) -> None:
 # ENTRY POINT
 # ─────────────────────────────────────────
 
+
 def main():
-    parser = argparse.ArgumentParser(
-        description="Inferência CNN — webcam ou arquivo"
-    )
+    parser = argparse.ArgumentParser(description="Inferência CNN — webcam ou arquivo")
     parser.add_argument(
-        "--imagem", "-i",
+        "--imagem",
+        "-i",
         type=str,
         default=None,
-        help="Caminho para uma imagem. Ex: --imagem foto.jpg"
+        help="Caminho para uma imagem. Ex: --imagem foto.jpg",
     )
     args = parser.parse_args()
 

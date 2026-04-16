@@ -108,6 +108,29 @@ augmentation = keras.Sequential(
 # Arquitetura: Augmentation → Normalização → Blocos Conv → Classificador
 
 
+def criar_modelo_mobilenet(num_classes: int) -> keras.Model:
+    # Carrega MobileNetV2 já treinado em 1.4M imagens
+    base = keras.applications.MobileNetV2(
+        input_shape=(*IMG_SIZE, 3),
+        include_top=False,  # remove a cabeça de classificação dele
+        weights="imagenet",  # pesos pré-treinados — o ouro aqui
+    )
+    base.trainable = False  # congela: não mexe no que ele já sabe
+
+    inputs = keras.Input(shape=(*IMG_SIZE, 3))
+    x = augmentation(inputs)
+    x = keras.applications.mobilenet_v2.preprocess_input(
+        x
+    )  # normalização própria do MobileNet
+    x = base(x, training=False)
+    x = layers.GlobalAveragePooling2D()(x)
+    x = layers.Dense(128, activation="relu")(x)
+    x = layers.Dropout(0.4)(x)
+    outputs = layers.Dense(num_classes, activation="softmax")(x)
+
+    return keras.Model(inputs, outputs, name="cnn_transfer")
+
+
 def criar_modelo(num_classes: int) -> keras.Model:
     """
     Cria a CNN.
@@ -150,7 +173,7 @@ def criar_modelo(num_classes: int) -> keras.Model:
     return keras.Model(inputs, outputs, name="cnn_classificador")
 
 
-modelo = criar_modelo(NUM_CLASSES)
+modelo = criar_modelo_mobilenet(NUM_CLASSES)
 modelo.summary()  # exibe a arquitetura completa
 
 
@@ -162,7 +185,9 @@ modelo.summary()  # exibe a arquitetura completa
 # metrics: o que queremos monitorar durante o treino
 
 modelo.compile(
-    optimizer=keras.optimizers.Adam(learning_rate=1e-3),
+    optimizer=keras.optimizers.Adam(
+        learning_rate=3e-4
+    ),  # (1e-3) ajuste feito após testes
     loss="categorical_crossentropy",  # função de erro para múltiplas classes
     metrics=["accuracy"],
 )
@@ -184,7 +209,7 @@ callbacks = [
     # Para o treino se não melhorar por N épocas seguidas
     keras.callbacks.EarlyStopping(
         monitor="val_accuracy",
-        patience=7,  # aguarda 7 épocas sem melhora antes de parar
+        patience=10,  # aguarda 10 épocas sem melhora antes de parar
         restore_best_weights=True,  # volta para os pesos da melhor época
         verbose=1,
     ),

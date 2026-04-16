@@ -6,7 +6,7 @@ Jovem Mestre Renan-kun | CHLOE Assistant
 
 import numpy as np
 import tensorflow as tf
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report
 from tensorflow import keras
 from tensorflow.keras import layers
 
@@ -50,6 +50,7 @@ val_ds = keras.utils.image_dataset_from_directory(
     image_size=IMG_SIZE,
     batch_size=BATCH_SIZE,
     label_mode="categorical",
+    color_mode="rgb",          # ← e aqui também
 )
 
 # Detecta as classes automaticamente (nome das subpastas)

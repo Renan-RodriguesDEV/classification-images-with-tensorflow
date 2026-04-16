@@ -10,6 +10,7 @@ from sklearn.metrics import classification_report
 from tensorflow import keras
 from tensorflow.keras import layers
 
+from utils.class_manager import carregar_classes, salvar_classes
 from utils.plot import plotar_historico, visualizar_matriz_confusao
 
 # ─────────────────────────────────────────
@@ -50,7 +51,7 @@ val_ds = keras.utils.image_dataset_from_directory(
     image_size=IMG_SIZE,
     batch_size=BATCH_SIZE,
     label_mode="categorical",
-    color_mode="rgb",          # ← e aqui também
+    color_mode="rgb",  # ← e aqui também
 )
 
 # Detecta as classes automaticamente (nome das subpastas)
@@ -248,15 +249,9 @@ visualizar_matriz_confusao(y_true, y_pred, CLASS_NAMES)
 # ─────────────────────────────────────────
 # O ModelCheckpoint já salvou o melhor modelo durante o treino.
 # Vamos também salvar as classes para usar na hora de prever.
-
-import json
-
-# Salva os nomes das classes em ordem
-with open("classes.json", "w") as f:
-    json.dump(CLASS_NAMES, f)
-
+salvar_classes(CLASS_NAMES)
 print(f"\n✅ Modelo salvo em: {MODEL_PATH}")
-print(f"✅ Classes salvas em: classes.json")
+print("✅ Classes salvas em: classes.json")
 
 
 # ─────────────────────────────────────────
@@ -271,9 +266,7 @@ def prever_imagem(caminho_imagem: str) -> None:
     """
     # Carrega modelo e classes
     modelo_salvo = keras.models.load_model(MODEL_PATH)
-    with open("classes.json") as f:
-        classes = json.load(f)
-
+    classes = carregar_classes()
     # Carrega e prepara a imagem
     img = keras.utils.load_img(caminho_imagem, target_size=IMG_SIZE)
     arr = keras.utils.img_to_array(img)  # converte para array numérico
@@ -292,6 +285,7 @@ def prever_imagem(caminho_imagem: str) -> None:
     for nome, prob in zip(classes, previsao):
         barra = "█" * int(prob * 20)
         print(f"   {nome:15s} {prob:.2%}  {barra}")
+    return classes[classe_idx], confianca
 
 
 # Descomente para testar após o treino:
